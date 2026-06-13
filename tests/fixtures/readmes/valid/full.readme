@@ -5,7 +5,7 @@ Type:         util/misc
 Version:      1.2.3
 Architecture: m68k-amigaos; ppc-morphos >= 1.4.0
 Distribution: Aminet
-Requires:     util/sys/foo.lha
+Requires:     util/libs/mui38usr.lha
 Replaces:     util/misc/oldtool.lha
 
 A fully populated readme with all recommended fields present. This body

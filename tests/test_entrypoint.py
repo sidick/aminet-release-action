@@ -13,6 +13,8 @@ import pytest
 
 import entrypoint
 import ftp_uploader
+import requires_checker
+from readme_validator import Issue
 
 FIXTURES = Path(__file__).parent / "fixtures" / "readmes"
 
@@ -179,6 +181,108 @@ def test_inject_version_rewrites_readme_before_validating(workspace, monkeypatch
     text = readme.read_text()
     assert "3.2.1" in text
     assert "Version:" in text
+
+
+def _readme_with_requires(path, requires_value):
+    """Write a minimal valid readme to `path` with the given Requires: line."""
+    path.write_text(
+        "Short:        Wiring test\n"
+        "Uploader:     test@example.com\n"
+        "Type:         util/misc\n"
+        "Architecture: m68k-amigaos\n"
+        f"Requires:     {requires_value}\n"
+        "\nBody.\n"
+    )
+
+
+def test_check_requires_on_invokes_checker_with_field_value(workspace, monkeypatch):
+    _, upload, readme = workspace
+    _readme_with_requires(readme, "util/libs/mui38usr.lha")
+
+    captured: dict = {}
+
+    def fake_check(requires_value, requires_line=None, **_):
+        captured["value"] = requires_value
+        captured["line"] = requires_line
+        return []
+
+    monkeypatch.setattr(requires_checker, "check", fake_check)
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        check_requires="true",
+        validate_only="true",
+    )
+    assert entrypoint.main() == 0
+    assert captured == {"value": "util/libs/mui38usr.lha", "line": 5}
+
+
+def test_check_requires_off_skips_checker(workspace, monkeypatch):
+    _, upload, readme = workspace
+    _readme_with_requires(readme, "util/libs/mui38usr.lha")
+
+    called: list = []
+    monkeypatch.setattr(
+        requires_checker, "check",
+        lambda *a, **k: (called.append((a, k)) or []),
+    )
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        # check-requires defaults to false
+        validate_only="true",
+    )
+    assert entrypoint.main() == 0
+    assert called == []
+
+
+def test_check_requires_on_without_requires_field_skips_checker(workspace, monkeypatch):
+    _, upload, readme = workspace
+    # The default workspace readme (valid/minimum.readme) has no Requires:.
+
+    called: list = []
+    monkeypatch.setattr(
+        requires_checker, "check",
+        lambda *a, **k: (called.append((a, k)) or []),
+    )
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        check_requires="true",
+        validate_only="true",
+    )
+    assert entrypoint.main() == 0
+    assert called == []
+
+
+def test_check_requires_error_fails_validation(workspace, monkeypatch):
+    """An error Issue from the checker bubbles up to exit code 1."""
+    _, upload, readme = workspace
+    _readme_with_requires(readme, "util/libs/never-existed-JU.lha")
+
+    def fake_check(requires_value, requires_line=None, **_):
+        return [Issue("error", f'Requires: "{requires_value}" missing', requires_line)]
+
+    monkeypatch.setattr(requires_checker, "check", fake_check)
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        check_requires="true",
+        validate_only="true",
+    )
+    assert entrypoint.main() == 1
 
 
 def test_upload_normalises_crlf_readme(workspace, monkeypatch):
