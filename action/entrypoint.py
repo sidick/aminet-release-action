@@ -183,6 +183,15 @@ def _emit_summary(result: RunResult) -> None:
     github_output.summary(_build_summary(result))
 
 
+def _emit_outputs(result: RunResult) -> None:
+    github_output.set_output("uploaded", result.uploaded)
+    github_output.set_output("release-attached", result.release_attached)
+    github_output.set_output("errors", result.errors)
+    github_output.set_output("warnings", result.warnings)
+    github_output.set_output("filename", result.filename_name)
+    github_output.set_output("readme", result.readme_name)
+
+
 def _run_pipeline(result: RunResult) -> int:
     inputs = _read_inputs()
     result.filename_name = inputs.filename.name
@@ -313,6 +322,7 @@ def main() -> int:
     result = RunResult()
     result.exit_code = _run_pipeline(result)
     _emit_summary(result)
+    _emit_outputs(result)
     return result.exit_code
 
 

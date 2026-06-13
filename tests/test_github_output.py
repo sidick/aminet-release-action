@@ -48,6 +48,43 @@ def test_summary_appends_to_step_summary(tmp_path, monkeypatch):
     assert content == "## first\n## second\n"
 
 
+def test_set_output_writes_key_value_line(tmp_path, monkeypatch):
+    target = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(target))
+    github_output.set_output("foo", "bar")
+    assert target.read_text() == "foo=bar\n"
+
+
+def test_set_output_bool_renders_lowercase_strings(tmp_path, monkeypatch):
+    target = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(target))
+    github_output.set_output("a", True)
+    github_output.set_output("b", False)
+    assert target.read_text() == "a=true\nb=false\n"
+
+
+def test_set_output_int_stringifies(tmp_path, monkeypatch):
+    target = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(target))
+    github_output.set_output("count", 42)
+    assert target.read_text() == "count=42\n"
+
+
+def test_set_output_multiline_uses_heredoc(tmp_path, monkeypatch):
+    target = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(target))
+    github_output.set_output("body", "line one\nline two")
+    content = target.read_text()
+    assert content.startswith("body<<")
+    assert "line one\nline two\n" in content
+
+
+def test_set_output_silent_without_env(tmp_path, monkeypatch):
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    # Should not raise.
+    github_output.set_output("foo", "bar")
+
+
 def test_summary_silent_without_env(tmp_path, monkeypatch):
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
     # Should not raise.

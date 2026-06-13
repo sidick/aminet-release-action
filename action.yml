@@ -36,6 +36,20 @@ inputs:
     required: false
     default: 'main.aminet.net'
 
+outputs:
+  uploaded:
+    description: 'true if the action actually uploaded the files to FTP; false otherwise (validation-only, missing-email, or upload failure).'
+  release-attached:
+    description: 'true if both files were attached to a matching GitHub Release; false otherwise.'
+  errors:
+    description: 'Decimal integer count of validation errors emitted.'
+  warnings:
+    description: 'Decimal integer count of validation warnings emitted.'
+  filename:
+    description: 'Basename of the upload file as it would land on Aminet (directory components stripped).'
+  readme:
+    description: 'Basename of the readme file as it would land on Aminet.'
+
 runs:
   using: 'docker'
   image: 'action/Dockerfile'

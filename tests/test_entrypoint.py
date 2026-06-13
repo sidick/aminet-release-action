@@ -464,6 +464,56 @@ def test_summary_handles_missing_inputs():
     assert "Stopped:" in md
 
 
+def test_main_writes_action_outputs(workspace, monkeypatch, tmp_path):
+    """Validate-only success path: outputs should be uploaded=false, errors=0,
+    and the filename/readme basenames populated."""
+    _, upload, readme = workspace
+    output_file = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        validate_only="true",
+    )
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    assert entrypoint.main() == 0
+
+    content = output_file.read_text()
+    assert "uploaded=false" in content
+    assert "release-attached=false" in content
+    assert "errors=0" in content
+    # minimum.readme is missing the recommended Author/Version fields → 2 warnings.
+    assert "warnings=2" in content
+    assert "filename=test.lha" in content
+    assert "readme=test.readme" in content
+
+
+def test_main_outputs_on_upload_path(workspace, monkeypatch, tmp_path):
+    """Upload path: uploaded=true after a (mocked) successful FTP upload."""
+    _, upload, readme = workspace
+    output_file = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+    monkeypatch.setattr(ftp_uploader, "upload", lambda *a, **k: None)
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    assert entrypoint.main() == 0
+
+    content = output_file.read_text()
+    assert "uploaded=true" in content
+    assert "release-attached=false" in content  # no tag push, so no attach
+
+
 def test_main_writes_summary_to_github_step_summary(workspace, monkeypatch, tmp_path):
     """Integration: a real main() run lands markdown in $GITHUB_STEP_SUMMARY."""
     _, upload, readme = workspace

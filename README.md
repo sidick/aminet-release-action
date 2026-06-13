@@ -83,6 +83,32 @@ jobs:
 
 Per the wiki, upload filenames must be ≤ 30 characters and contain only `[A-Za-z0-9._-]`. Version numbers belong in the readme's `Version:` field, not the filename. The validator enforces both.
 
+## Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `uploaded` | bool | `true` if the action actually uploaded the files to FTP. |
+| `release-attached` | bool | `true` if both files were attached to a matching GitHub Release. |
+| `errors` | int | Count of validation errors. |
+| `warnings` | int | Count of validation warnings. |
+| `filename` | string | Basename of the upload file (as it would land on Aminet). |
+| `readme` | string | Basename of the readme file. |
+
+Reference them in downstream steps as `steps.<id>.outputs.<name>`:
+
+```yaml
+      - id: aminet
+        uses: sidick/aminet-release-action@v1
+        with:
+          filename: dist/MyTool.lha
+          readme: dist/MyTool.readme
+          category: util/misc
+          uploader-email: ${{ secrets.AMINET_UPLOADER_EMAIL }}
+
+      - if: steps.aminet.outputs.uploaded == 'true'
+        run: echo "Shipped ${{ steps.aminet.outputs.filename }}"
+```
+
 ## Exit codes
 
 | Code | Meaning |
