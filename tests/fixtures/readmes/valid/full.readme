@@ -1,0 +1,13 @@
+Short:        Fully populated readme for tests
+Author:       author@example.com (A. Author)
+Uploader:     uploader@example.com (T. Test)
+Type:         util/misc
+Version:      1.2.3
+Architecture: m68k-amigaos; ppc-morphos >= 1.4.0
+Distribution: Aminet
+Requires:     util/sys/foo.lha
+Replaces:     util/misc/oldtool.lha
+
+A fully populated readme with all recommended fields present. This body
+fits within 78 characters per line so the line-length warning does not
+fire.

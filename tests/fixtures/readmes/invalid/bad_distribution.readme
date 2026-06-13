@@ -1,0 +1,7 @@
+Short:        Bad distribution value
+Uploader:     test@example.com (T. Test)
+Type:         util/misc
+Architecture: m68k-amigaos
+Distribution: Public
+
+Distribution only accepts NoCD or Aminet.

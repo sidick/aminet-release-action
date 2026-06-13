@@ -1,0 +1,7 @@
+Author:       author@example.com (A. Author)
+Short:        Short is present but not on line 1
+Uploader:     test@example.com (T. Test)
+Type:         util/misc
+Architecture: m68k-amigaos
+
+Short: should be on the first line; here it is on the second.

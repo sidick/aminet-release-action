@@ -1,0 +1,6 @@
+Short:        Type disagrees with category
+Uploader:     test@example.com (T. Test)
+Type:         dev/c
+Architecture: m68k-amigaos
+
+Tests pass category="util/misc"; this readme declares dev/c.

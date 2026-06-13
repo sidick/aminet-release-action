@@ -1,0 +1,6 @@
+Short:        Body line is too long
+Uploader:     test@example.com (T. Test)
+Type:         util/misc
+Architecture: m68k-amigaos
+
+This body line is intentionally much longer than the seventy-eight character recommendation set out by the Aminet wiki, and should produce a warning.

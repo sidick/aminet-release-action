@@ -1,0 +1,7 @@
+Short:        Minimal valid readme for tests
+Uploader:     test@example.com (T. Test)
+Type:         util/misc
+Architecture: m68k-amigaos
+
+A minimum-viable readme. Required fields only; Author and Version are
+expected to trigger warnings but no errors.

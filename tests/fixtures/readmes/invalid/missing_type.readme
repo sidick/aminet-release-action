@@ -1,0 +1,5 @@
+Short:        Missing type
+Uploader:     test@example.com (T. Test)
+Architecture: m68k-amigaos
+
+Type field is absent.

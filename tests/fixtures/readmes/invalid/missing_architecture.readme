@@ -1,0 +1,5 @@
+Short:        Missing architecture
+Uploader:     test@example.com (T. Test)
+Type:         util/misc
+
+Architecture field is absent.

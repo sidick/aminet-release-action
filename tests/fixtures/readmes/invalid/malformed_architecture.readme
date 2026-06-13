@@ -1,0 +1,6 @@
+Short:        Malformed architecture entry
+Uploader:     test@example.com (T. Test)
+Type:         util/misc
+Architecture: m68k-amigaos >>= 2.0
+
+The >>= modifier is not in the allowed set; whole entry is unparseable.

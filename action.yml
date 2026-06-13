@@ -1,0 +1,41 @@
+name: 'Aminet Release'
+description: 'Validate and upload a pre-built Aminet package, attach to a matching GitHub Release.'
+author: 'Simon Dick'
+branding:
+  icon: 'upload-cloud'
+  color: 'orange'
+
+inputs:
+  filename:
+    description: 'Path to the file to upload. Aminet accepts archives (lha, run, zip), tarballs (tar, tar.gz, tgz, tar.bz2), disk images (adf, adz), pictures (jpg, png, gif), documents (pdf, txt), audio (ogg, mp3), and video (mpg).'
+    required: true
+  readme:
+    description: 'Path to the Aminet-format .readme file.'
+    required: true
+  category:
+    description: 'Aminet category, e.g. util/misc, dev/c. Must match the Type: field in the readme.'
+    required: true
+  uploader-email:
+    description: 'Your email address. Used as the FTP password for anonymous upload to main.aminet.net. Required unless validate-only is true.'
+    required: false
+    default: ''
+  inject-version:
+    description: 'If true, overwrite the Version: field in the readme using the git tag (refs/tags/<tag>, with a leading v stripped).'
+    required: false
+    default: 'false'
+  validate-only:
+    description: 'If true, validate the readme but skip upload and release-asset attachment.'
+    required: false
+    default: 'false'
+  check-requires:
+    description: 'If true, HTTP-HEAD each file-path entry in the readme''s Requires: field against aminet.net to catch dangling references. Off by default — adds a network dependency at validation time.'
+    required: false
+    default: 'false'
+  ftp-host:
+    description: 'FTP hostname to upload to. Override only for testing against a non-production server; the default targets the real Aminet.'
+    required: false
+    default: 'main.aminet.net'
+
+runs:
+  using: 'docker'
+  image: 'action/Dockerfile'

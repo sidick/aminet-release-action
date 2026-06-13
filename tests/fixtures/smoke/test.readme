@@ -1,0 +1,8 @@
+Short:        Smoke-test upload
+Author:       ci@example.com (CI)
+Uploader:     ci@example.com (CI)
+Type:         util/misc
+Version:      0.0.1
+Architecture: m68k-amigaos
+
+Smoke test fixture used by the CI FTP job. Not a real Aminet upload.

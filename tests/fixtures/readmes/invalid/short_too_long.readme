@@ -1,0 +1,6 @@
+Short:        This short description is intentionally far too long for Aminet conventions
+Uploader:     test@example.com (T. Test)
+Type:         util/misc
+Architecture: m68k-amigaos
+
+Short exceeds the 40-character limit.
