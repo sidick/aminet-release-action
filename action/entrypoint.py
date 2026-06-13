@@ -36,6 +36,32 @@ class Inputs:
     ftp_host: str
 
 
+@dataclass
+class RunResult:
+    """Accumulated state from one main() invocation.
+
+    Drives both the GITHUB_STEP_SUMMARY markdown and (in a follow-up) the
+    action outputs, so every code path that exits must populate the fields
+    it owns before returning.
+    """
+
+    filename_name: str = ""
+    readme_name: str = ""
+    category: str = ""
+    mode: str = "upload"  # "upload" | "validate-only"
+
+    errors: int = 0
+    warnings: int = 0
+
+    uploaded: bool = False
+    upload_target: str = ""
+    release_attached: bool = False
+    release_name: str = ""
+
+    fatal_message: str = ""
+    exit_code: int = EXIT_OK
+
+
 def _input(name: str, default: str = "") -> str:
     # GitHub Actions maps `with:` keys to INPUT_<NAME> env vars, uppercasing
     # the name and preserving hyphens.
@@ -74,7 +100,7 @@ def _normalise_line_endings(path: Path) -> None:
         path.write_bytes(raw.replace(b"\r\n", b"\n"))
 
 
-def _attach_to_release(filename: Path, readme: Path) -> None:
+def _attach_to_release(filename: Path, readme: Path, result: RunResult) -> None:
     ref = os.environ.get("GITHUB_REF", "")
     if not ref.startswith("refs/tags/"):
         return  # not a tag push, nothing to attach to
@@ -100,8 +126,11 @@ def _attach_to_release(filename: Path, readme: Path) -> None:
         upload_url = release["upload_url"]
         for asset in (filename, readme):
             github_release.upload_asset(upload_url, asset, token)
+        release_name = release.get("name") or tag
+        result.release_attached = True
+        result.release_name = release_name
         github_output.notice(
-            f"Attached {filename.name} and {readme.name} to release {release.get('name') or tag}"
+            f"Attached {filename.name} and {readme.name} to release {release_name}"
         )
     except github_release.ReleaseError as e:
         # Don't fail the whole action if release attachment fails — the
@@ -109,8 +138,57 @@ def _attach_to_release(filename: Path, readme: Path) -> None:
         github_output.warning(f"Could not attach release assets: {e}")
 
 
-def main() -> int:
+def _build_summary(result: RunResult) -> str:
+    title = result.filename_name or "(no filename)"
+    category = result.category or "(no category)"
+    lines: list[str] = [
+        f"## Aminet Release — `{title}` → `{category}`",
+        "",
+        "| Check | Result |",
+        "|---|---|",
+    ]
+
+    if result.errors:
+        validation = f"FAIL — {result.errors} error(s), {result.warnings} warning(s)"
+    else:
+        validation = f"OK — 0 errors, {result.warnings} warning(s)"
+    lines.append(f"| Validation | {validation} |")
+
+    if result.uploaded:
+        upload_cell = f"OK — {result.upload_target}"
+    elif result.mode == "validate-only" and result.errors == 0:
+        upload_cell = "skipped (validate-only)"
+    elif result.exit_code == EXIT_UPLOAD_FAILURE:
+        upload_cell = "FAIL"
+    else:
+        upload_cell = "—"
+    lines.append(f"| Upload | {upload_cell} |")
+
+    if result.release_attached:
+        release_cell = f"OK — {result.release_name}"
+    elif result.uploaded:
+        release_cell = "n/a (no matching release or not a tag push)"
+    else:
+        release_cell = "—"
+    lines.append(f"| Release attach | {release_cell} |")
+
+    if result.fatal_message:
+        lines.append("")
+        lines.append(f"**Stopped:** {result.fatal_message}")
+
+    return "\n".join(lines) + "\n"
+
+
+def _emit_summary(result: RunResult) -> None:
+    github_output.summary(_build_summary(result))
+
+
+def _run_pipeline(result: RunResult) -> int:
     inputs = _read_inputs()
+    result.filename_name = inputs.filename.name
+    result.readme_name = inputs.readme.name
+    result.category = inputs.category
+    result.mode = "validate-only" if inputs.validate_only else "upload"
 
     missing = [
         n
@@ -122,20 +200,28 @@ def main() -> int:
         if not v
     ]
     if missing:
-        github_output.error(f"required inputs missing: {', '.join(missing)}")
+        msg = f"required inputs missing: {', '.join(missing)}"
+        github_output.error(msg)
+        result.fatal_message = msg
         return EXIT_VALIDATION_FAILURE
 
     if not inputs.filename.is_file():
-        github_output.error(f"filename not found: {inputs.filename}")
+        msg = f"filename not found: {inputs.filename}"
+        github_output.error(msg)
+        result.fatal_message = msg
         return EXIT_VALIDATION_FAILURE
     if not inputs.readme.is_file():
-        github_output.error(f"readme not found: {inputs.readme}")
+        msg = f"readme not found: {inputs.readme}"
+        github_output.error(msg)
+        result.fatal_message = msg
         return EXIT_VALIDATION_FAILURE
 
     if inputs.inject_version:
         version = _derive_version_from_tag()
         if version is None:
-            github_output.error("inject-version requires a tag push (GITHUB_REF=refs/tags/<tag>)")
+            msg = "inject-version requires a tag push (GITHUB_REF=refs/tags/<tag>)"
+            github_output.error(msg)
+            result.fatal_message = msg
             return EXIT_VALIDATION_FAILURE
         text = inputs.readme.read_text(encoding="utf-8")
         text = readme_validator.inject_version(text, version)
@@ -154,22 +240,23 @@ def main() -> int:
         issues.extend(requires_checker.check(value, requires_line=line))
 
     readme_str = str(inputs.readme)
-    errors, warnings = 0, 0
     for issue in issues:
         if issue.level == "error":
             github_output.error(issue.message, file=readme_str, line=issue.line)
-            errors += 1
+            result.errors += 1
         else:
             github_output.warning(issue.message, file=readme_str, line=issue.line)
-            warnings += 1
+            result.warnings += 1
 
-    if errors:
-        github_output.error(f"readme validation failed: {errors} error(s), {warnings} warning(s)")
+    if result.errors:
+        msg = f"readme validation failed: {result.errors} error(s), {result.warnings} warning(s)"
+        github_output.error(msg)
+        result.fatal_message = msg
         return EXIT_VALIDATION_FAILURE
 
     if inputs.validate_only:
         github_output.notice(
-            f"validate-only: readme is valid ({warnings} warning(s)); skipping upload"
+            f"validate-only: readme is valid ({result.warnings} warning(s)); skipping upload"
         )
         return EXIT_OK
 
@@ -185,10 +272,12 @@ def main() -> int:
             )
 
     if not effective_email:
-        github_output.error(
+        msg = (
             "no uploader email available: pass uploader-email as an input or "
             "set the readme's Uploader: field to an email address"
         )
+        github_output.error(msg)
+        result.fatal_message = msg
         return EXIT_UPLOAD_FAILURE
 
     # Aminet expects LF-only readmes. Quietly normalise before uploading so
@@ -204,17 +293,27 @@ def main() -> int:
             host=inputs.ftp_host,
         )
     except ftp_uploader.UploadError as e:
-        github_output.error(f"FTP upload failed: {e}")
+        msg = f"FTP upload failed: {e}"
+        github_output.error(msg)
+        result.fatal_message = msg
         return EXIT_UPLOAD_FAILURE
 
+    result.uploaded = True
+    result.upload_target = f"{inputs.ftp_host}{ftp_uploader.UPLOAD_DIR}"
     github_output.notice(
-        f"Uploaded {inputs.filename.name} and {inputs.readme.name} to "
-        f"{inputs.ftp_host}{ftp_uploader.UPLOAD_DIR}"
+        f"Uploaded {inputs.filename.name} and {inputs.readme.name} to {result.upload_target}"
     )
 
-    _attach_to_release(inputs.filename, inputs.readme)
+    _attach_to_release(inputs.filename, inputs.readme, result)
 
     return EXIT_OK
+
+
+def main() -> int:
+    result = RunResult()
+    result.exit_code = _run_pipeline(result)
+    _emit_summary(result)
+    return result.exit_code
 
 
 if __name__ == "__main__":

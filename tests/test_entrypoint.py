@@ -14,6 +14,7 @@ import pytest
 import entrypoint
 import ftp_uploader
 import requires_checker
+from entrypoint import RunResult, _build_summary
 from readme_validator import Issue, validate_filename
 
 FIXTURES = Path(__file__).parent / "fixtures" / "readmes"
@@ -386,6 +387,105 @@ def test_check_requires_error_fails_validation(workspace, monkeypatch):
         validate_only="true",
     )
     assert entrypoint.main() == 1
+
+
+# --------------------------------------------------------------------------
+# Step summary
+# --------------------------------------------------------------------------
+
+
+def test_summary_all_green_upload():
+    r = RunResult(
+        filename_name="MyTool.lha",
+        readme_name="MyTool.readme",
+        category="util/misc",
+        mode="upload",
+        uploaded=True,
+        upload_target="main.aminet.net/new",
+        release_attached=True,
+        release_name="v1.0.0",
+    )
+    md = _build_summary(r)
+    assert "Aminet Release — `MyTool.lha` → `util/misc`" in md
+    assert "| Validation | OK — 0 errors, 0 warning(s) |" in md
+    assert "| Upload | OK — main.aminet.net/new |" in md
+    assert "| Release attach | OK — v1.0.0 |" in md
+    assert "Stopped:" not in md
+
+
+def test_summary_validate_only_success():
+    r = RunResult(
+        filename_name="MyTool.lha",
+        category="util/misc",
+        mode="validate-only",
+        warnings=1,
+    )
+    md = _build_summary(r)
+    assert "| Validation | OK — 0 errors, 1 warning(s) |" in md
+    assert "| Upload | skipped (validate-only) |" in md
+    assert "| Release attach | — |" in md
+
+
+def test_summary_validation_failure():
+    r = RunResult(
+        filename_name="MyTool.lha",
+        category="util/misc",
+        errors=3,
+        warnings=2,
+        fatal_message="readme validation failed: 3 error(s), 2 warning(s)",
+        exit_code=1,
+    )
+    md = _build_summary(r)
+    assert "| Validation | FAIL — 3 error(s), 2 warning(s) |" in md
+    assert "| Upload | — |" in md
+    assert "**Stopped:** readme validation failed" in md
+
+
+def test_summary_upload_failure():
+    r = RunResult(
+        filename_name="MyTool.lha",
+        category="util/misc",
+        mode="upload",
+        fatal_message="FTP upload failed: connection refused",
+        exit_code=2,
+    )
+    md = _build_summary(r)
+    assert "| Validation | OK — 0 errors, 0 warning(s) |" in md
+    assert "| Upload | FAIL |" in md
+    assert "**Stopped:** FTP upload failed" in md
+
+
+def test_summary_handles_missing_inputs():
+    """No filename/category set yet (early bail) — summary should not crash."""
+    r = RunResult(fatal_message="required inputs missing: filename, category", exit_code=1)
+    md = _build_summary(r)
+    assert "`(no filename)`" in md
+    assert "`(no category)`" in md
+    assert "Stopped:" in md
+
+
+def test_main_writes_summary_to_github_step_summary(workspace, monkeypatch, tmp_path):
+    """Integration: a real main() run lands markdown in $GITHUB_STEP_SUMMARY."""
+    _, upload, readme = workspace
+    summary_file = tmp_path / "step-summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_file))
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        validate_only="true",
+    )
+    # _set_inputs deletes GITHUB_STEP_SUMMARY (not in the protected list, but
+    # added defensively); set it again after.
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary_file))
+    assert entrypoint.main() == 0
+
+    content = summary_file.read_text()
+    assert "Aminet Release — `test.lha` → `util/misc`" in content
+    assert "OK — 0 errors" in content
+    assert "skipped (validate-only)" in content
 
 
 def test_upload_normalises_crlf_readme(workspace, monkeypatch):
