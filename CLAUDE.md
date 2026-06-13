@@ -11,9 +11,10 @@ readme against Aminet conventions, uploads both via **anonymous FTP to
 corresponding GitHub Release. Packaging the upload is explicitly out of
 scope — the user's own build step produces it.
 
-`PLAN.md` is the design spec. The Aminet wiki is the authoritative source for
-the readme format and upload procedure — when wiki and PLAN disagree, the
-wiki wins and PLAN gets updated:
+The code under `action/` and the user-facing `README.md` are the source of
+truth. The Aminet wiki is the upstream spec for the readme format and the
+upload procedure — when behaviour and wiki disagree, the wiki wins and the
+code/README get updated to match:
 
 - <https://wiki.aminet.net/The_Readme_file>
 - <https://wiki.aminet.net/Uploading_instructions>
@@ -30,7 +31,7 @@ wiki wins and PLAN gets updated:
   taking CLI args.
 - **Exit codes are part of the contract**, not just diagnostics: `0`
   success, `1` validation failure, `2` upload failure. Don't collapse these
-  or invent new ones without updating `PLAN.md`.
+  or invent new ones without updating the README's "Exit codes" table.
 - **FTP is anonymous, destination is fixed.** Anonymous FTP, password =
   `uploader-email` input, destination is always `/new` (regardless of
   category). The category input is used only to cross-check the readme's
