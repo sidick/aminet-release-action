@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (SemVer X.Y.Z; leading v optional)'
+        required: true
+        type: string
+      slide-major:
+        description: 'Also slide the matching v<major> floating tag to this commit'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Normalise and validate version
+        id: ver
+        run: |
+          raw="${{ inputs.version }}"
+          ver="${raw#v}"
+          if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must be SemVer X.Y.Z (got '$raw')"
+            exit 1
+          fi
+          tag="v$ver"
+          major="v${ver%%.*}"
+          echo "tag=$tag"     >> "$GITHUB_OUTPUT"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag (major floating tag: $major)"
+
+      - name: Ensure point tag does not already exist
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "::error::Tag $tag already exists"
+            exit 1
+          fi
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push point tag
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
+
+      - name: Slide floating major tag
+        if: ${{ inputs.slide-major }}
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          major="${{ steps.ver.outputs.major }}"
+          git tag -f "$major" "$tag^{}"
+          git push -f origin "$major"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          gh release create "$tag" \
+            --title "$tag" \
+            --generate-notes
