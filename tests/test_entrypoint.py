@@ -13,7 +13,7 @@ import pytest
 
 import entrypoint
 import ftp_uploader
-import requires_checker
+import path_checker
 from entrypoint import RunResult, _build_summary
 from readme_validator import Issue, validate_filename
 
@@ -303,12 +303,12 @@ def test_check_requires_on_invokes_checker_with_field_value(workspace, monkeypat
 
     captured: dict = {}
 
-    def fake_check(requires_value, requires_line=None, **_):
-        captured["value"] = requires_value
-        captured["line"] = requires_line
+    def fake_check(field_value, field_line=None, **_):
+        captured["value"] = field_value
+        captured["line"] = field_line
         return []
 
-    monkeypatch.setattr(requires_checker, "check", fake_check)
+    monkeypatch.setattr(path_checker, "check", fake_check)
 
     _set_inputs(
         monkeypatch,
@@ -328,7 +328,7 @@ def test_check_requires_off_skips_checker(workspace, monkeypatch):
 
     called: list = []
     monkeypatch.setattr(
-        requires_checker,
+        path_checker,
         "check",
         lambda *a, **k: called.append((a, k)) or [],
     )
@@ -351,7 +351,7 @@ def test_check_requires_on_without_requires_field_skips_checker(workspace, monke
 
     called: list = []
     monkeypatch.setattr(
-        requires_checker,
+        path_checker,
         "check",
         lambda *a, **k: called.append((a, k)) or [],
     )
@@ -368,15 +368,74 @@ def test_check_requires_on_without_requires_field_skips_checker(workspace, monke
     assert called == []
 
 
+def test_check_replaces_on_invokes_checker_for_replaces_field(workspace, monkeypatch):
+    """check-replaces=true with a Replaces: in the readme calls path_checker
+    with field_name='Replaces'."""
+    _, upload, readme = workspace
+    readme.write_text(
+        "Short:        Replaces wiring test\n"
+        "Uploader:     test@example.com\n"
+        "Type:         util/misc\n"
+        "Architecture: m68k-amigaos\n"
+        "Replaces:     util/misc/oldtool.lha\n"
+        "\nBody.\n"
+    )
+
+    calls: list = []
+
+    def fake_check(field_value, field_line=None, *, field_name="Requires", **_):
+        calls.append({"value": field_value, "line": field_line, "field": field_name})
+        return []
+
+    monkeypatch.setattr(path_checker, "check", fake_check)
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        check_replaces="true",
+        validate_only="true",
+    )
+    assert entrypoint.main() == 0
+    assert calls == [{"value": "util/misc/oldtool.lha", "line": 5, "field": "Replaces"}]
+
+
+def test_check_replaces_off_skips_checker(workspace, monkeypatch):
+    _, upload, readme = workspace
+    readme.write_text(
+        "Short:        Replaces wiring test\n"
+        "Uploader:     test@example.com\n"
+        "Type:         util/misc\n"
+        "Architecture: m68k-amigaos\n"
+        "Replaces:     util/misc/oldtool.lha\n"
+        "\nBody.\n"
+    )
+
+    called: list = []
+    monkeypatch.setattr(path_checker, "check", lambda *a, **k: called.append(True) or [])
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        # check-replaces deliberately omitted
+        validate_only="true",
+    )
+    assert entrypoint.main() == 0
+    assert called == []
+
+
 def test_check_requires_error_fails_validation(workspace, monkeypatch):
     """An error Issue from the checker bubbles up to exit code 1."""
     _, upload, readme = workspace
     _readme_with_requires(readme, "util/libs/never-existed-JU.lha")
 
-    def fake_check(requires_value, requires_line=None, **_):
-        return [Issue("error", f'Requires: "{requires_value}" missing', requires_line)]
+    def fake_check(field_value, field_line=None, **_):
+        return [Issue("error", f'Requires: "{field_value}" missing', field_line)]
 
-    monkeypatch.setattr(requires_checker, "check", fake_check)
+    monkeypatch.setattr(path_checker, "check", fake_check)
 
     _set_inputs(
         monkeypatch,

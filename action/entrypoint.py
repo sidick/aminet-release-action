@@ -16,8 +16,8 @@ from pathlib import Path
 import ftp_uploader
 import github_output
 import github_release
+import path_checker
 import readme_validator
-import requires_checker
 
 EXIT_OK = 0
 EXIT_VALIDATION_FAILURE = 1
@@ -33,6 +33,7 @@ class Inputs:
     inject_version: bool
     validate_only: bool
     check_requires: bool
+    check_replaces: bool
     ftp_host: str
 
 
@@ -81,6 +82,7 @@ def _read_inputs() -> Inputs:
         inject_version=_truthy(_input("inject-version", "false")),
         validate_only=_truthy(_input("validate-only", "false")),
         check_requires=_truthy(_input("check-requires", "false")),
+        check_replaces=_truthy(_input("check-replaces", "false")),
         ftp_host=_input("ftp-host", ftp_uploader.DEFAULT_HOST).strip(),
     )
 
@@ -246,7 +248,11 @@ def _run_pipeline(result: RunResult) -> int:
 
     if inputs.check_requires and "Requires" in parsed.header:
         line, value = parsed.header["Requires"]
-        issues.extend(requires_checker.check(value, requires_line=line))
+        issues.extend(path_checker.check(value, field_line=line, field_name="Requires"))
+
+    if inputs.check_replaces and "Replaces" in parsed.header:
+        line, value = parsed.header["Replaces"]
+        issues.extend(path_checker.check(value, field_line=line, field_name="Replaces"))
 
     readme_str = str(inputs.readme)
     for issue in issues:

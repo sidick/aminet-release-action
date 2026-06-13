@@ -31,6 +31,10 @@ inputs:
     description: 'If true, HTTP-HEAD each file-path entry in the readme''s Requires: field against aminet.net to catch dangling references. Off by default — adds a network dependency at validation time.'
     required: false
     default: 'false'
+  check-replaces:
+    description: 'If true, HTTP-HEAD each file-path entry in the readme''s Replaces: field against aminet.net. Wildcard entries (containing * or ?) are skipped. Off by default — adds a network dependency at validation time.'
+    required: false
+    default: 'false'
   ftp-host:
     description: 'FTP hostname to upload to. Override only for testing against a non-production server; the default targets the real Aminet.'
     required: false

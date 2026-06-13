@@ -31,6 +31,7 @@ to match.
 | `inject-version` | If `true`, overwrite `Version:` field from the git tag |
 | `validate-only` | If `true`, validate the readme but skip upload |
 | `check-requires` | If `true`, HTTP-HEAD each file-path entry in `Requires:` against `aminet.net` |
+| `check-replaces` | If `true`, same HEAD-based check on `Replaces:` (wildcards skipped) |
 | `ftp-host` | FTP hostname (default `main.aminet.net`). Override only for testing |
 
 ## Implementation
@@ -159,8 +160,10 @@ the `Requires:` field against `https://aminet.net/<path>`.
 - HTTP 404 surfaces as an error issue.
 - Other HTTP/connection failures surface as warnings — we couldn't verify,
   but that's not the same as "definitely broken."
-- Lives in a separate module (`requires_checker.py`) so the validator
-  stays pure and network-free.
+- Lives in a separate module (`path_checker.py`) so the validator
+  stays pure and network-free. The same module backs both
+  `check-requires` and `check-replaces`; entries with wildcards (`*`,
+  `?`) are skipped silently because they can't be HEAD-checked.
 
 Off by default because it adds a network dependency at validation time and
 because a `Requires:` entry may legitimately point at another package being

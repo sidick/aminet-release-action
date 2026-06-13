@@ -1,8 +1,9 @@
-"""Tests for the opt-in Requires: existence checker.
+"""Tests for the opt-in path-existence checker (Requires: and Replaces:).
 
 All network access is monkeypatched. We test the URL construction,
-which entries are eligible (file path heuristic), and how HEAD outcomes
-map to Issue levels.
+which entries are eligible (file path heuristic), how HEAD outcomes
+map to Issue levels, and that the field_name parameter changes the
+Issue message text.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from requires_checker import check
+from path_checker import check
 
 
 def make_head(responses: dict[str, Any]):
@@ -51,6 +52,8 @@ def make_head(responses: dict[str, Any]):
         "no-slashes-here.lha",  # has extension but no /
         "util/sys/no-extension",  # has / but no recognised extension
         "util/sys/foo.unknown",  # / but bad extension
+        "util/misc/foo*.lha",  # wildcard *: can't HEAD a glob
+        "util/misc/foo?.lha",  # wildcard ?: can't HEAD a glob
     ],
 )
 def test_non_file_entries_are_skipped(entry):
@@ -106,11 +109,24 @@ def test_404_is_an_error():
     url = "https://aminet.net/util/sys/missing.lha"
     err = urllib.error.HTTPError(url, 404, "Not Found", {}, None)
     fake, _ = make_head({url: err})
-    issues = check("util/sys/missing.lha", head=fake, requires_line=7)
+    issues = check("util/sys/missing.lha", head=fake, field_line=7)
     assert len(issues) == 1
     assert issues[0].level == "error"
     assert "404" in issues[0].message
     assert issues[0].line == 7
+    # Default field_name is "Requires" — should show in the message.
+    assert "Requires:" in issues[0].message
+
+
+def test_field_name_overrides_message_prefix():
+    """When checking Replaces:, the Issue message should say 'Replaces:'."""
+    url = "https://aminet.net/util/misc/oldtool.lha"
+    err = urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+    fake, _ = make_head({url: err})
+    issues = check("util/misc/oldtool.lha", head=fake, field_name="Replaces")
+    assert len(issues) == 1
+    assert "Replaces:" in issues[0].message
+    assert "Requires:" not in issues[0].message
 
 
 def test_other_http_status_is_a_warning():

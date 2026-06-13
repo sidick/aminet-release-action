@@ -77,6 +77,7 @@ jobs:
 | `inject-version` | no | `false` | If `true`, rewrites the readme's `Version:` field from the git tag (strips a leading `v`) before validation. Hard error if not run on a tag push. |
 | `validate-only` | no | `false` | If `true`, validate the readme and exit; skip upload and release-asset attachment. |
 | `check-requires` | no | `false` | If `true`, HTTP-HEAD each file-path entry in `Requires:` against `aminet.net`. 404 → error; other failures → warning. Off by default because it adds a network dependency at validation time. |
+| `check-replaces` | no | `false` | If `true`, same HEAD-based check applied to the `Replaces:` field. Wildcard entries (`*`, `?`) are skipped — they can't be HEAD-checked meaningfully. |
 | `ftp-host` | no | `main.aminet.net` | Accepts `host` or `host:port`. Override only for debugging — the default targets the real Aminet. |
 
 ## Filename rules
