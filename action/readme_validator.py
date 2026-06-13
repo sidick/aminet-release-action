@@ -7,31 +7,42 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 REQUIRED_FIELDS: tuple[str, ...] = ("Short", "Uploader", "Type", "Architecture")
 RECOMMENDED_FIELDS: tuple[str, ...] = ("Author", "Version")
 
-KNOWN_ARCHITECTURES: frozenset[str] = frozenset({
-    "m68k-amigaos",
-    "ppc-amigaos",
-    "ppc-morphos",
-    "ppc-powerup",
-    "ppc-warpup",
-    "i386-aros",
-    "i386-amithlon",
-    "generic",
-})
+KNOWN_ARCHITECTURES: frozenset[str] = frozenset(
+    {
+        "m68k-amigaos",
+        "ppc-amigaos",
+        "ppc-morphos",
+        "ppc-powerup",
+        "ppc-warpup",
+        "i386-aros",
+        "i386-amithlon",
+        "generic",
+    }
+)
 
 VALID_DISTRIBUTION: frozenset[str] = frozenset({"NoCD", "Aminet"})
 
 ACCEPTED_EXTENSIONS: tuple[str, ...] = (
-    ".lha", ".run", ".zip",
-    ".adf", ".adz",
-    ".tar", ".tar.gz", ".tgz", ".tar.bz2",
-    ".jpg", ".png", ".gif",
-    ".pdf", ".txt",
-    ".ogg", ".mp3",
+    ".lha",
+    ".run",
+    ".zip",
+    ".adf",
+    ".adz",
+    ".tar",
+    ".tar.gz",
+    ".tgz",
+    ".tar.bz2",
+    ".jpg",
+    ".png",
+    ".gif",
+    ".pdf",
+    ".txt",
+    ".ogg",
+    ".mp3",
     ".mpg",
 )
 
@@ -51,7 +62,7 @@ MAX_BODY_LINE_LENGTH = 78
 class Issue:
     level: str  # "error" or "warning"
     message: str
-    line: Optional[int] = None
+    line: int | None = None
 
 
 @dataclass
@@ -62,6 +73,7 @@ class ParsedReadme:
     1-indexed and refer to the original file. `body` is everything after the
     first blank line, joined with the original newlines.
     """
+
     header: dict[str, tuple[int, str]] = field(default_factory=dict)
     body: str = ""
     body_start_line: int = 1
@@ -116,21 +128,25 @@ def _validate_architecture(line_no: int, value: str) -> list[Issue]:
             continue
         m = ARCH_ENTRY_PATTERN.match(entry)
         if not m:
-            issues.append(Issue(
-                "error",
-                f'Cannot parse architecture entry "{entry.strip()}"; '
-                f"expected ARCH [>=|<=|>|<|= VERSION]",
-                line_no,
-            ))
+            issues.append(
+                Issue(
+                    "error",
+                    f'Cannot parse architecture entry "{entry.strip()}"; '
+                    f"expected ARCH [>=|<=|>|<|= VERSION]",
+                    line_no,
+                )
+            )
             continue
         arch = m.group("arch")
         if arch not in KNOWN_ARCHITECTURES:
-            issues.append(Issue(
-                "error",
-                f'Unknown architecture "{arch}". Known: '
-                f"{', '.join(sorted(KNOWN_ARCHITECTURES))}",
-                line_no,
-            ))
+            issues.append(
+                Issue(
+                    "error",
+                    f'Unknown architecture "{arch}". Known: '
+                    f"{', '.join(sorted(KNOWN_ARCHITECTURES))}",
+                    line_no,
+                )
+            )
     return issues
 
 
@@ -143,7 +159,7 @@ def _ext_of(name: str) -> str:
     return lower[dot:] if dot != -1 else ""
 
 
-def extract_uploader_email(uploader_value: str) -> Optional[str]:
+def extract_uploader_email(uploader_value: str) -> str | None:
     """Pull the first email-like token out of an `Uploader:` field value.
 
     Accepts plain `name@host.tld`, with a display-name parenthetical
@@ -157,26 +173,32 @@ def extract_uploader_email(uploader_value: str) -> Optional[str]:
 def validate_filename(name: str) -> list[Issue]:
     issues: list[Issue] = []
     if len(name) > MAX_FILENAME_LENGTH:
-        issues.append(Issue(
-            "error",
-            f'Filename "{name}" is {len(name)} characters; max is {MAX_FILENAME_LENGTH}',
-        ))
+        issues.append(
+            Issue(
+                "error",
+                f'Filename "{name}" is {len(name)} characters; max is {MAX_FILENAME_LENGTH}',
+            )
+        )
     if not FILENAME_PATTERN.match(name):
-        issues.append(Issue(
-            "error",
-            f'Filename "{name}" contains characters outside [A-Za-z0-9._-]',
-        ))
+        issues.append(
+            Issue(
+                "error",
+                f'Filename "{name}" contains characters outside [A-Za-z0-9._-]',
+            )
+        )
     return issues
 
 
 def validate_upload_extension(name: str) -> list[Issue]:
     ext = _ext_of(name)
     if ext not in ACCEPTED_EXTENSIONS:
-        return [Issue(
-            "error",
-            f'Upload extension "{ext or "(none)"}" not accepted by Aminet. '
-            f"Accepted: {', '.join(ACCEPTED_EXTENSIONS)}",
-        )]
+        return [
+            Issue(
+                "error",
+                f'Upload extension "{ext or "(none)"}" not accepted by Aminet. '
+                f"Accepted: {', '.join(ACCEPTED_EXTENSIONS)}",
+            )
+        ]
     return []
 
 
@@ -190,27 +212,32 @@ def validate(parsed: ParsedReadme, category: str) -> list[Issue]:
     if "Short" in parsed.header:
         line, value = parsed.header["Short"]
         if len(value) > MAX_SHORT_LENGTH:
-            issues.append(Issue(
-                "error",
-                f"Short description is {len(value)} characters; max is "
-                f"{MAX_SHORT_LENGTH}",
-                line,
-            ))
+            issues.append(
+                Issue(
+                    "error",
+                    f"Short description is {len(value)} characters; max is {MAX_SHORT_LENGTH}",
+                    line,
+                )
+            )
         if not parsed.short_on_first_line:
-            issues.append(Issue(
-                "warning",
-                "Short: should be the first line of the readme",
-                line,
-            ))
+            issues.append(
+                Issue(
+                    "warning",
+                    "Short: should be the first line of the readme",
+                    line,
+                )
+            )
 
     if "Type" in parsed.header:
         line, value = parsed.header["Type"]
         if value != category:
-            issues.append(Issue(
-                "error",
-                f'Type "{value}" does not match the category input "{category}"',
-                line,
-            ))
+            issues.append(
+                Issue(
+                    "error",
+                    f'Type "{value}" does not match the category input "{category}"',
+                    line,
+                )
+            )
 
     if "Architecture" in parsed.header:
         line, value = parsed.header["Architecture"]
@@ -219,31 +246,37 @@ def validate(parsed: ParsedReadme, category: str) -> list[Issue]:
     if "Distribution" in parsed.header:
         line, value = parsed.header["Distribution"]
         if value not in VALID_DISTRIBUTION:
-            issues.append(Issue(
-                "error",
-                f'Distribution "{value}" is not valid; expected NoCD or Aminet',
-                line,
-            ))
+            issues.append(
+                Issue(
+                    "error",
+                    f'Distribution "{value}" is not valid; expected NoCD or Aminet',
+                    line,
+                )
+            )
 
     for f in RECOMMENDED_FIELDS:
         if f not in parsed.header:
             issues.append(Issue("warning", f"Missing recommended field: {f}"))
 
     if parsed.has_crlf:
-        issues.append(Issue(
-            "warning",
-            "Readme uses CR+LF line endings; Aminet expects LF only "
-            "(the uploader will normalise before sending)",
-        ))
+        issues.append(
+            Issue(
+                "warning",
+                "Readme uses CR+LF line endings; Aminet expects LF only "
+                "(the uploader will normalise before sending)",
+            )
+        )
 
     for offset, line in enumerate(parsed.body.split("\n")):
         if len(line) > MAX_BODY_LINE_LENGTH:
-            issues.append(Issue(
-                "warning",
-                f"Body line is {len(line)} characters; Aminet recommends "
-                f"≤ {MAX_BODY_LINE_LENGTH}",
-                parsed.body_start_line + offset,
-            ))
+            issues.append(
+                Issue(
+                    "warning",
+                    f"Body line is {len(line)} characters; Aminet recommends "
+                    f"≤ {MAX_BODY_LINE_LENGTH}",
+                    parsed.body_start_line + offset,
+                )
+            )
 
     return issues
 

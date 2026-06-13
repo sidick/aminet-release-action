@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-import readme_validator
 from readme_validator import (
     Issue,
     extract_uploader_email,
@@ -40,6 +39,7 @@ def warnings(issues: list[Issue]) -> list[Issue]:
 # Valid fixtures
 # --------------------------------------------------------------------------
 
+
 def test_minimum_has_no_errors():
     parsed = parse(load("valid/minimum.readme"))
     issues = validate(parsed, "util/misc")
@@ -68,7 +68,12 @@ INVALID_CASES = [
     ("invalid/missing_short.readme", "util/misc", "error", "Missing required field: Short"),
     ("invalid/missing_uploader.readme", "util/misc", "error", "Missing required field: Uploader"),
     ("invalid/missing_type.readme", "util/misc", "error", "Missing required field: Type"),
-    ("invalid/missing_architecture.readme", "util/misc", "error", "Missing required field: Architecture"),
+    (
+        "invalid/missing_architecture.readme",
+        "util/misc",
+        "error",
+        "Missing required field: Architecture",
+    ),
     ("invalid/short_too_long.readme", "util/misc", "error", "Short description is"),
     ("invalid/short_not_first.readme", "util/misc", "warning", "Short: should be the first line"),
     ("invalid/type_mismatch.readme", "util/misc", "error", "does not match the category"),
@@ -93,6 +98,7 @@ def test_invalid_fixture_triggers_expected_issue(fixture, category, level, subst
 # have to manage CRLF bytes on disk.
 # --------------------------------------------------------------------------
 
+
 def test_crlf_produces_warning_not_error():
     crlf_text = load("valid/minimum.readme").replace("\n", "\r\n")
     parsed = parse(crlf_text)
@@ -109,13 +115,17 @@ def test_crlf_produces_warning_not_error():
 # don't exercise.
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("arch_value", [
-    "m68k-amigaos",
-    "m68k-amigaos; ppc-amigaos",
-    "ppc-morphos >= 1.4.0",
-    "m68k-amigaos >= 2.0; ppc-amigaos",
-    "generic",
-])
+
+@pytest.mark.parametrize(
+    "arch_value",
+    [
+        "m68k-amigaos",
+        "m68k-amigaos; ppc-amigaos",
+        "ppc-morphos >= 1.4.0",
+        "m68k-amigaos >= 2.0; ppc-amigaos",
+        "generic",
+    ],
+)
 def test_valid_architecture_strings(arch_value):
     text = (
         f"Short:        Architecture test\n"
@@ -144,6 +154,7 @@ def test_empty_architecture_is_an_error():
 # --------------------------------------------------------------------------
 # parse() basics
 # --------------------------------------------------------------------------
+
 
 def test_parse_extracts_header_with_line_numbers():
     text = (
@@ -182,24 +193,31 @@ def test_parse_detects_crlf():
 # Filename validation
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("name", [
-    "MyTool.lha",
-    "my_tool.lha",
-    "my-tool.lha",
-    "MyTool.tar.gz",
-    "a" * 30,
-])
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "MyTool.lha",
+        "my_tool.lha",
+        "my-tool.lha",
+        "MyTool.tar.gz",
+        "a" * 30,
+    ],
+)
 def test_valid_filenames(name):
     assert validate_filename(name) == []
 
 
-@pytest.mark.parametrize("name,expected_substring", [
-    ("a" * 31, "max is 30"),
-    ("My Tool.lha", "outside"),
-    ("file/name.lha", "outside"),
-    ("file?name.lha", "outside"),
-    ("file\nname.lha", "outside"),
-])
+@pytest.mark.parametrize(
+    "name,expected_substring",
+    [
+        ("a" * 31, "max is 30"),
+        ("My Tool.lha", "outside"),
+        ("file/name.lha", "outside"),
+        ("file?name.lha", "outside"),
+        ("file\nname.lha", "outside"),
+    ],
+)
 def test_invalid_filenames(name, expected_substring):
     issues = validate_filename(name)
     assert any(expected_substring in i.message for i in issues), (
@@ -211,26 +229,43 @@ def test_invalid_filenames(name, expected_substring):
 # Upload extension validation
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("name", [
-    "foo.lha", "foo.zip", "foo.run",
-    "foo.tar", "foo.tar.gz", "foo.tgz", "foo.tar.bz2",
-    "foo.adf", "foo.adz",
-    "foo.jpg", "foo.png", "foo.gif",
-    "foo.pdf", "foo.txt",
-    "foo.ogg", "foo.mp3",
-    "foo.mpg",
-])
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "foo.lha",
+        "foo.zip",
+        "foo.run",
+        "foo.tar",
+        "foo.tar.gz",
+        "foo.tgz",
+        "foo.tar.bz2",
+        "foo.adf",
+        "foo.adz",
+        "foo.jpg",
+        "foo.png",
+        "foo.gif",
+        "foo.pdf",
+        "foo.txt",
+        "foo.ogg",
+        "foo.mp3",
+        "foo.mpg",
+    ],
+)
 def test_accepted_extensions(name):
     assert validate_upload_extension(name) == []
 
 
-@pytest.mark.parametrize("name", [
-    "foo.exe",
-    "foo.rar",
-    "foo.7z",
-    "foo",  # no extension
-    "foo.tar.xz",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "foo.exe",
+        "foo.rar",
+        "foo.7z",
+        "foo",  # no extension
+        "foo.tar.xz",
+    ],
+)
 def test_rejected_extensions(name):
     issues = validate_upload_extension(name)
     assert issues, f"expected rejection for {name!r}"
@@ -240,27 +275,34 @@ def test_rejected_extensions(name):
 # extract_uploader_email
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("value,expected", [
-    ("me@example.com", "me@example.com"),
-    ("me@example.com (A Person)", "me@example.com"),
-    ("(A Person) me@example.com", "me@example.com"),
-    ("A Person <me@example.com>", "me@example.com"),
-    ("first.last+tag@sub.example.co.uk", "first.last+tag@sub.example.co.uk"),
-    # Multiple emails: first match wins (good enough).
-    ("a@b.com; backup@c.com", "a@b.com"),
-])
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("me@example.com", "me@example.com"),
+        ("me@example.com (A Person)", "me@example.com"),
+        ("(A Person) me@example.com", "me@example.com"),
+        ("A Person <me@example.com>", "me@example.com"),
+        ("first.last+tag@sub.example.co.uk", "first.last+tag@sub.example.co.uk"),
+        # Multiple emails: first match wins (good enough).
+        ("a@b.com; backup@c.com", "a@b.com"),
+    ],
+)
 def test_extract_uploader_email_finds_address(value, expected):
     assert extract_uploader_email(value) == expected
 
 
-@pytest.mark.parametrize("value", [
-    "",
-    "A Person",
-    "no email at all",
-    "me AT example DOT com",  # obfuscated form; we don't reverse it
-    "@nodomain",
-    "missing-at-symbol.example.com",
-])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "A Person",
+        "no email at all",
+        "me AT example DOT com",  # obfuscated form; we don't reverse it
+        "@nodomain",
+        "missing-at-symbol.example.com",
+    ],
+)
 def test_extract_uploader_email_returns_none_when_absent(value):
     assert extract_uploader_email(value) is None
 
@@ -269,32 +311,22 @@ def test_extract_uploader_email_returns_none_when_absent(value):
 # inject_version
 # --------------------------------------------------------------------------
 
+
 def test_inject_version_replaces_existing():
-    text = (
-        "Short:        x\n"
-        "Version:      0.1\n"
-        "Type:         util/misc\n"
-        "\nBody.\n"
-    )
+    text = "Short:        x\nVersion:      0.1\nType:         util/misc\n\nBody.\n"
     result = inject_version(text, "1.2.3")
     assert "Version:      1.2.3" in result
     assert "0.1" not in result
 
 
 def test_inject_version_inserts_when_missing():
-    text = (
-        "Short:        x\n"
-        "Type:         util/misc\n"
-        "\nBody.\n"
-    )
+    text = "Short:        x\nType:         util/misc\n\nBody.\n"
     result = inject_version(text, "1.0")
     assert "Version: 1.0" in result
     # Inserted line must come before the blank-line separator.
     lines = result.split("\n")
     blank_idx = lines.index("")
-    version_idx = next(
-        i for i, l in enumerate(lines) if l.lstrip().startswith("Version:")
-    )
+    version_idx = next(i for i, line in enumerate(lines) if line.lstrip().startswith("Version:"))
     assert version_idx < blank_idx
 
 

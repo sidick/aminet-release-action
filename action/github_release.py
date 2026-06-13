@@ -10,7 +10,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Optional
 
 API_BASE = "https://api.github.com"
 
@@ -19,9 +18,14 @@ class ReleaseError(RuntimeError):
     pass
 
 
-def _request(url: str, token: str, *, data: Optional[bytes] = None,
-             content_type: str = "application/json",
-             method: Optional[str] = None) -> dict:
+def _request(
+    url: str,
+    token: str,
+    *,
+    data: bytes | None = None,
+    content_type: str = "application/json",
+    method: str | None = None,
+) -> dict:
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
@@ -37,9 +41,7 @@ def _request(url: str, token: str, *, data: Optional[bytes] = None,
             body = resp.read()
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace") if e.fp else ""
-        raise ReleaseError(
-            f"GitHub API {e.code} on {url}: {body[:500]}"
-        ) from e
+        raise ReleaseError(f"GitHub API {e.code} on {url}: {body[:500]}") from e
     except urllib.error.URLError as e:
         raise ReleaseError(f"GitHub API request failed for {url}: {e.reason}") from e
     if not body:
@@ -47,7 +49,7 @@ def _request(url: str, token: str, *, data: Optional[bytes] = None,
     return json.loads(body)
 
 
-def find_release_by_tag(repo: str, tag: str, token: str) -> Optional[dict]:
+def find_release_by_tag(repo: str, tag: str, token: str) -> dict | None:
     """Return the release for `tag`, or None if no such release exists."""
     url = f"{API_BASE}/repos/{repo}/releases/tags/{urllib.parse.quote(tag)}"
     try:
@@ -68,5 +70,4 @@ def upload_asset(upload_url_template: str, path: Path, token: str) -> dict:
     query = urllib.parse.urlencode({"name": path.name})
     url = f"{base}?{query}"
     data = path.read_bytes()
-    return _request(url, token, data=data,
-                    content_type="application/octet-stream", method="POST")
+    return _request(url, token, data=data, content_type="application/octet-stream", method="POST")

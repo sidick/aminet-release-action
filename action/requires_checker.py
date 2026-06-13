@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import urllib.error
 import urllib.request
-from typing import Optional
 
 from readme_validator import ACCEPTED_EXTENSIONS, Issue
 
@@ -37,11 +36,11 @@ def _head(url: str, timeout: float) -> int:
 
 def check(
     requires_value: str,
-    requires_line: Optional[int] = None,
+    requires_line: int | None = None,
     *,
     base_url: str = DEFAULT_BASE_URL,
     timeout: float = 10.0,
-    head: Optional[callable] = None,
+    head: callable | None = None,
 ) -> list[Issue]:
     """Return validator-style Issues for each checkable entry in a Requires: value.
 
@@ -59,29 +58,37 @@ def check(
             status = do_head(url, timeout)
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                issues.append(Issue(
-                    "error",
-                    f'Requires: "{entry}" does not exist on Aminet (HTTP 404)',
-                    requires_line,
-                ))
+                issues.append(
+                    Issue(
+                        "error",
+                        f'Requires: "{entry}" does not exist on Aminet (HTTP 404)',
+                        requires_line,
+                    )
+                )
             else:
-                issues.append(Issue(
-                    "warning",
-                    f'Could not verify Requires: "{entry}" — HTTP {e.code}',
-                    requires_line,
-                ))
+                issues.append(
+                    Issue(
+                        "warning",
+                        f'Could not verify Requires: "{entry}" — HTTP {e.code}',
+                        requires_line,
+                    )
+                )
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            issues.append(Issue(
-                "warning",
-                f'Could not verify Requires: "{entry}" — {e}',
-                requires_line,
-            ))
+            issues.append(
+                Issue(
+                    "warning",
+                    f'Could not verify Requires: "{entry}" — {e}',
+                    requires_line,
+                )
+            )
         else:
             if status >= 400:
-                issues.append(Issue(
-                    "warning",
-                    f'Requires: "{entry}" returned HTTP {status}',
-                    requires_line,
-                ))
+                issues.append(
+                    Issue(
+                        "warning",
+                        f'Requires: "{entry}" returned HTTP {status}',
+                        requires_line,
+                    )
+                )
 
     return issues

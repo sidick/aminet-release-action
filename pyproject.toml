@@ -1,3 +1,21 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["action"]
+
+[tool.ruff]
+line-length = 100
+src = ["action", "tests"]
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+]
+
+[tool.ruff.format]
+quote-style = "double"

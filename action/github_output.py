@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 
-def _emit(level: str, message: str, file: Optional[str], line: Optional[int]) -> None:
+def _emit(level: str, message: str, file: str | None, line: int | None) -> None:
     parts: list[str] = []
     if file:
         parts.append(f"file={file}")
@@ -19,15 +18,15 @@ def _emit(level: str, message: str, file: Optional[str], line: Optional[int]) ->
     print(f"::{level}{location}::{safe}", flush=True)
 
 
-def error(message: str, file: Optional[str] = None, line: Optional[int] = None) -> None:
+def error(message: str, file: str | None = None, line: int | None = None) -> None:
     _emit("error", message, file, line)
 
 
-def warning(message: str, file: Optional[str] = None, line: Optional[int] = None) -> None:
+def warning(message: str, file: str | None = None, line: int | None = None) -> None:
     _emit("warning", message, file, line)
 
 
-def notice(message: str, file: Optional[str] = None, line: Optional[int] = None) -> None:
+def notice(message: str, file: str | None = None, line: int | None = None) -> None:
     _emit("notice", message, file, line)
 
 

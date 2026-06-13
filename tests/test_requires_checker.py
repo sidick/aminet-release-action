@@ -12,7 +12,6 @@ from typing import Any
 
 import pytest
 
-import requires_checker
 from requires_checker import check
 
 
@@ -42,14 +41,18 @@ def make_head(responses: dict[str, Any]):
 # Eligibility heuristic
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("entry", [
-    "1MB RAM",
-    "OS 3.0",
-    "AGA chipset",
-    "no-slashes-here.lha",  # has extension but no /
-    "util/sys/no-extension",  # has / but no recognised extension
-    "util/sys/foo.unknown",  # / but bad extension
-])
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "1MB RAM",
+        "OS 3.0",
+        "AGA chipset",
+        "no-slashes-here.lha",  # has extension but no /
+        "util/sys/no-extension",  # has / but no recognised extension
+        "util/sys/foo.unknown",  # / but bad extension
+    ],
+)
 def test_non_file_entries_are_skipped(entry):
     fake, seen = make_head({})
     issues = check(entry, head=fake)
@@ -57,11 +60,14 @@ def test_non_file_entries_are_skipped(entry):
     assert issues == []
 
 
-@pytest.mark.parametrize("entry", [
-    "util/sys/foo.lha",
-    "biz/dbase/bar.tar.gz",
-    "pix/icon/baz.png",
-])
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "util/sys/foo.lha",
+        "biz/dbase/bar.tar.gz",
+        "pix/icon/baz.png",
+    ],
+)
 def test_file_entries_are_checked(entry):
     url = f"https://aminet.net/{entry}"
     fake, seen = make_head({url: 200})
@@ -74,12 +80,15 @@ def test_file_entries_are_checked(entry):
 # Multi-entry value: skip free-text, check file paths
 # --------------------------------------------------------------------------
 
+
 def test_mixed_value_only_checks_file_paths():
     value = "1MB RAM; util/sys/foo.lha; AGA chipset; util/misc/bar.zip"
-    fake, seen = make_head({
-        "https://aminet.net/util/sys/foo.lha": 200,
-        "https://aminet.net/util/misc/bar.zip": 200,
-    })
+    fake, seen = make_head(
+        {
+            "https://aminet.net/util/sys/foo.lha": 200,
+            "https://aminet.net/util/misc/bar.zip": 200,
+        }
+    )
     issues = check(value, head=fake)
     assert sorted(seen) == [
         "https://aminet.net/util/misc/bar.zip",
@@ -91,6 +100,7 @@ def test_mixed_value_only_checks_file_paths():
 # --------------------------------------------------------------------------
 # HTTP outcomes → Issue level
 # --------------------------------------------------------------------------
+
 
 def test_404_is_an_error():
     url = "https://aminet.net/util/sys/missing.lha"
@@ -144,6 +154,7 @@ def test_4xx_other_than_404_via_status_is_a_warning():
 # --------------------------------------------------------------------------
 # Base URL override
 # --------------------------------------------------------------------------
+
 
 def test_base_url_can_be_overridden():
     fake, seen = make_head({"http://localhost/util/sys/foo.lha": 200})

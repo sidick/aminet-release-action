@@ -12,7 +12,6 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import ftp_uploader
 import github_output
@@ -60,12 +59,12 @@ def _read_inputs() -> Inputs:
     )
 
 
-def _derive_version_from_tag() -> Optional[str]:
+def _derive_version_from_tag() -> str | None:
     ref = os.environ.get("GITHUB_REF", "")
     prefix = "refs/tags/"
     if not ref.startswith(prefix):
         return None
-    tag = ref[len(prefix):]
+    tag = ref[len(prefix) :]
     return tag[1:] if tag.startswith("v") else tag
 
 
@@ -79,14 +78,13 @@ def _attach_to_release(filename: Path, readme: Path) -> None:
     ref = os.environ.get("GITHUB_REF", "")
     if not ref.startswith("refs/tags/"):
         return  # not a tag push, nothing to attach to
-    tag = ref[len("refs/tags/"):]
+    tag = ref[len("refs/tags/") :]
 
     repo = os.environ.get("GITHUB_REPOSITORY")
     token = os.environ.get("GITHUB_TOKEN")
     if not repo or not token:
         github_output.warning(
-            "GITHUB_REPOSITORY or GITHUB_TOKEN not set; skipping release "
-            "asset attachment"
+            "GITHUB_REPOSITORY or GITHUB_TOKEN not set; skipping release asset attachment"
         )
         return
 
@@ -103,8 +101,7 @@ def _attach_to_release(filename: Path, readme: Path) -> None:
         for asset in (filename, readme):
             github_release.upload_asset(upload_url, asset, token)
         github_output.notice(
-            f"Attached {filename.name} and {readme.name} to release "
-            f"{release.get('name') or tag}"
+            f"Attached {filename.name} and {readme.name} to release {release.get('name') or tag}"
         )
     except github_release.ReleaseError as e:
         # Don't fail the whole action if release attachment fails — the
@@ -115,15 +112,17 @@ def _attach_to_release(filename: Path, readme: Path) -> None:
 def main() -> int:
     inputs = _read_inputs()
 
-    missing = [n for n, v in (
-        ("filename", str(inputs.filename)),
-        ("readme", str(inputs.readme)),
-        ("category", inputs.category),
-    ) if not v]
-    if missing:
-        github_output.error(
-            f"required inputs missing: {', '.join(missing)}"
+    missing = [
+        n
+        for n, v in (
+            ("filename", str(inputs.filename)),
+            ("readme", str(inputs.readme)),
+            ("category", inputs.category),
         )
+        if not v
+    ]
+    if missing:
+        github_output.error(f"required inputs missing: {', '.join(missing)}")
         return EXIT_VALIDATION_FAILURE
 
     if not inputs.filename.is_file():
@@ -136,10 +135,7 @@ def main() -> int:
     if inputs.inject_version:
         version = _derive_version_from_tag()
         if version is None:
-            github_output.error(
-                "inject-version requires a tag push "
-                "(GITHUB_REF=refs/tags/<tag>)"
-            )
+            github_output.error("inject-version requires a tag push (GITHUB_REF=refs/tags/<tag>)")
             return EXIT_VALIDATION_FAILURE
         text = inputs.readme.read_text(encoding="utf-8")
         text = readme_validator.inject_version(text, version)
@@ -168,15 +164,12 @@ def main() -> int:
             warnings += 1
 
     if errors:
-        github_output.error(
-            f"readme validation failed: {errors} error(s), {warnings} warning(s)"
-        )
+        github_output.error(f"readme validation failed: {errors} error(s), {warnings} warning(s)")
         return EXIT_VALIDATION_FAILURE
 
     if inputs.validate_only:
         github_output.notice(
-            f"validate-only: readme is valid ({warnings} warning(s)); "
-            "skipping upload"
+            f"validate-only: readme is valid ({warnings} warning(s)); skipping upload"
         )
         return EXIT_OK
 

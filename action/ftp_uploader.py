@@ -60,6 +60,4 @@ def upload(
     if result.returncode != 0:
         # lftp tends to write errors to stderr; fall back to stdout.
         detail = (result.stderr or result.stdout or "").strip()
-        raise UploadError(
-            f"lftp exited with code {result.returncode}: {detail}"
-        )
+        raise UploadError(f"lftp exited with code {result.returncode}: {detail}")

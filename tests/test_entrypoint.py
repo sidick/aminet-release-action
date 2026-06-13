@@ -151,8 +151,9 @@ def test_no_email_anywhere_returns_two(workspace, monkeypatch):
         "\nBody.\n"
     )
 
-    monkeypatch.setattr(ftp_uploader, "upload",
-                        lambda *a, **k: pytest.fail("upload must not be called"))
+    monkeypatch.setattr(
+        ftp_uploader, "upload", lambda *a, **k: pytest.fail("upload must not be called")
+    )
 
     _set_inputs(
         monkeypatch,
@@ -192,7 +193,9 @@ def test_happy_upload_calls_ftp_with_inputs(workspace, monkeypatch):
 
 
 def test_nested_filename_path_strips_to_basename_for_validation_and_upload(
-    workspace, monkeypatch, tmp_path,
+    workspace,
+    monkeypatch,
+    tmp_path,
 ):
     """A real consumer passes `build/MyTool.lha`; the directory part must not
     leak into either the validator (where `/` is illegal in a filename) or
@@ -324,8 +327,9 @@ def test_check_requires_off_skips_checker(workspace, monkeypatch):
 
     called: list = []
     monkeypatch.setattr(
-        requires_checker, "check",
-        lambda *a, **k: (called.append((a, k)) or []),
+        requires_checker,
+        "check",
+        lambda *a, **k: called.append((a, k)) or [],
     )
 
     _set_inputs(
@@ -346,8 +350,9 @@ def test_check_requires_on_without_requires_field_skips_checker(workspace, monke
 
     called: list = []
     monkeypatch.setattr(
-        requires_checker, "check",
-        lambda *a, **k: (called.append((a, k)) or []),
+        requires_checker,
+        "check",
+        lambda *a, **k: called.append((a, k)) or [],
     )
 
     _set_inputs(
