@@ -30,7 +30,7 @@ jobs:
   aminet:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build the archive
         run: make dist   # whatever produces dist/MyTool.lha + dist/MyTool.readme
@@ -53,7 +53,7 @@ jobs:
   readme:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: make dist
       - uses: sidick/aminet-release-action@v1
         with:
