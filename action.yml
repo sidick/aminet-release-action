@@ -16,7 +16,7 @@ inputs:
     description: 'Aminet category, e.g. util/misc, dev/c. Must match the Type: field in the readme.'
     required: true
   uploader-email:
-    description: 'Your email address. Used as the FTP password for anonymous upload to main.aminet.net. Required unless validate-only is true.'
+    description: 'Your email address. Used as the FTP password for anonymous upload to main.aminet.net. Optional: if omitted, the action extracts an email from the readme''s Uploader: field. The action fails before upload only if neither source yields an email.'
     required: false
     default: ''
   inject-version:

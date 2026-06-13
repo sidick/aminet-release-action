@@ -73,7 +73,7 @@ jobs:
 | `filename` | yes | — | Path to the file to upload. Aminet accepts archives (`.lha`, `.run`, `.zip`), tarballs (`.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`), disk images (`.adf`, `.adz`), pictures (`.jpg`, `.png`, `.gif`), documents (`.pdf`, `.txt`), audio (`.ogg`, `.mp3`), and video (`.mpg`). |
 | `readme` | yes | — | Path to the Aminet-format `.readme` file. |
 | `category` | yes | — | Aminet category, e.g. `util/misc`, `dev/c`. Must match the `Type:` field in the readme. |
-| `uploader-email` | conditional | `''` | Your email address. Used as the FTP password for anonymous upload. Required unless `validate-only` is `true`. |
+| `uploader-email` | no | `''` | Your email address. Used as the FTP password for anonymous upload. If omitted, the action extracts an email from the readme's `Uploader:` field. Fails before upload only if neither source yields one. |
 | `inject-version` | no | `false` | If `true`, rewrites the readme's `Version:` field from the git tag (strips a leading `v`) before validation. Hard error if not run on a tag push. |
 | `validate-only` | no | `false` | If `true`, validate the readme and exit; skip upload and release-asset attachment. |
 | `check-requires` | no | `false` | If `true`, HTTP-HEAD each file-path entry in `Requires:` against `aminet.net`. 404 → error; other failures → warning. Off by default because it adds a network dependency at validation time. |

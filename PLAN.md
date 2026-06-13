@@ -27,7 +27,7 @@ to match.
 | `filename` | Path to the file to upload (`.lha` typical; see "Accepted file types") |
 | `readme` | Path to the Aminet-format `.readme` file |
 | `category` | Aminet category, e.g. `util/misc`, `dev/c` |
-| `uploader-email` | Your email address. Used as the FTP password for anonymous upload. Required unless `validate-only` |
+| `uploader-email` | Your email address. Used as the FTP password for anonymous upload. Falls back to an email extracted from the readme's `Uploader:` field if not provided; only fails if neither source yields one |
 | `inject-version` | If `true`, overwrite `Version:` field from the git tag |
 | `validate-only` | If `true`, validate the readme but skip upload |
 | `check-requires` | If `true`, HTTP-HEAD each file-path entry in `Requires:` against `aminet.net` |
@@ -126,7 +126,9 @@ Both the upload file and the `.readme` are uploaded to `main.aminet.net` via `lf
 using anonymous FTP into `/new`:
 
 - Username: `anonymous`
-- Password: `uploader-email` input (your email address)
+- Password: the `uploader-email` input, OR — if that's empty — the first
+  email-like token extracted from the readme's `Uploader:` field. The
+  action fails with exit code 2 if neither source yields an email.
 - Destination: `/new/` (single staging directory; the readme's `Type:`
   field tells Aminet which category to file it under)
 
@@ -143,7 +145,7 @@ that fails.
 
 Setting `validate-only: true` runs readme validation and exits without
 uploading. Intended for use in PR checks so malformed readmes are caught
-before release time. `uploader-email` is not required in this mode.
+before release time. `uploader-email` is not consulted in this mode.
 
 ### Requires: existence check (opt-in)
 

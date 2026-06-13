@@ -36,6 +36,7 @@ ACCEPTED_EXTENSIONS: tuple[str, ...] = (
 )
 
 FILENAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
+EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
 ARCH_ENTRY_PATTERN = re.compile(
     r"^\s*(?P<arch>\S+?)(?:\s+(?P<mod>>=|<=|>|<|=)\s+(?P<ver>\S+))?\s*$"
 )
@@ -140,6 +141,17 @@ def _ext_of(name: str) -> str:
             return ext
     dot = lower.rfind(".")
     return lower[dot:] if dot != -1 else ""
+
+
+def extract_uploader_email(uploader_value: str) -> Optional[str]:
+    """Pull the first email-like token out of an `Uploader:` field value.
+
+    Accepts plain `name@host.tld`, with a display-name parenthetical
+    (`name@host.tld (Name)`), or RFC2822 angle brackets (`Name <name@host.tld>`).
+    Returns None if no email-like substring is present.
+    """
+    m = EMAIL_PATTERN.search(uploader_value)
+    return m.group(0) if m else None
 
 
 def validate_filename(name: str) -> list[Issue]:

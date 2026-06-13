@@ -9,6 +9,7 @@ import pytest
 import readme_validator
 from readme_validator import (
     Issue,
+    extract_uploader_email,
     inject_version,
     parse,
     validate,
@@ -233,6 +234,35 @@ def test_accepted_extensions(name):
 def test_rejected_extensions(name):
     issues = validate_upload_extension(name)
     assert issues, f"expected rejection for {name!r}"
+
+
+# --------------------------------------------------------------------------
+# extract_uploader_email
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("value,expected", [
+    ("me@example.com", "me@example.com"),
+    ("me@example.com (A Person)", "me@example.com"),
+    ("(A Person) me@example.com", "me@example.com"),
+    ("A Person <me@example.com>", "me@example.com"),
+    ("first.last+tag@sub.example.co.uk", "first.last+tag@sub.example.co.uk"),
+    # Multiple emails: first match wins (good enough).
+    ("a@b.com; backup@c.com", "a@b.com"),
+])
+def test_extract_uploader_email_finds_address(value, expected):
+    assert extract_uploader_email(value) == expected
+
+
+@pytest.mark.parametrize("value", [
+    "",
+    "A Person",
+    "no email at all",
+    "me AT example DOT com",  # obfuscated form; we don't reverse it
+    "@nodomain",
+    "missing-at-symbol.example.com",
+])
+def test_extract_uploader_email_returns_none_when_absent(value):
+    assert extract_uploader_email(value) is None
 
 
 # --------------------------------------------------------------------------

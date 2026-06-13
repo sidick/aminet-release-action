@@ -94,14 +94,72 @@ def test_missing_filename_file_returns_one(workspace, monkeypatch):
     assert entrypoint.main() == 1
 
 
-def test_upload_path_without_email_returns_two(workspace, monkeypatch):
+def test_upload_path_without_email_falls_back_to_uploader_field(workspace, monkeypatch):
+    """The minimum-valid fixture has `Uploader: test@example.com (T. Test)`,
+    so omitting uploader-email should derive `test@example.com` and upload."""
     _, upload, readme = workspace
+
+    captured: dict = {}
+
+    def fake_upload(filename, readme_path, *, email, host):
+        captured["email"] = email
+
+    monkeypatch.setattr(ftp_uploader, "upload", fake_upload)
+
     _set_inputs(
         monkeypatch,
         filename=str(upload),
         readme=str(readme),
         category="util/misc",
-        # uploader-email deliberately omitted; not validate-only
+        # uploader-email deliberately omitted
+    )
+    assert entrypoint.main() == 0
+    assert captured["email"] == "test@example.com"
+
+
+def test_explicit_uploader_email_overrides_readme_fallback(workspace, monkeypatch):
+    _, upload, readme = workspace
+
+    captured: dict = {}
+
+    def fake_upload(filename, readme_path, *, email, host):
+        captured["email"] = email
+
+    monkeypatch.setattr(ftp_uploader, "upload", fake_upload)
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="explicit@example.com",
+    )
+    assert entrypoint.main() == 0
+    # The readme's Uploader: test@example.com must NOT win when input is set.
+    assert captured["email"] == "explicit@example.com"
+
+
+def test_no_email_anywhere_returns_two(workspace, monkeypatch):
+    """If Uploader: is present but contains no email, neither source yields
+    a value — the action must fail before upload."""
+    _, upload, readme = workspace
+    readme.write_text(
+        "Short:        No email anywhere\n"
+        "Uploader:     T. Test (no email here)\n"
+        "Type:         util/misc\n"
+        "Architecture: m68k-amigaos\n"
+        "\nBody.\n"
+    )
+
+    monkeypatch.setattr(ftp_uploader, "upload",
+                        lambda *a, **k: pytest.fail("upload must not be called"))
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        # uploader-email deliberately omitted
     )
     assert entrypoint.main() == 2
 

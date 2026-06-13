@@ -180,9 +180,21 @@ def main() -> int:
         )
         return EXIT_OK
 
-    if not inputs.uploader_email:
+    effective_email = inputs.uploader_email
+    if not effective_email and "Uploader" in parsed.header:
+        _, uploader_value = parsed.header["Uploader"]
+        derived = readme_validator.extract_uploader_email(uploader_value)
+        if derived:
+            effective_email = derived
+            github_output.notice(
+                f"uploader-email not provided; using {derived} from the "
+                f"readme's Uploader: field as the FTP password"
+            )
+
+    if not effective_email:
         github_output.error(
-            "uploader-email is required when not in validate-only mode"
+            "no uploader email available: pass uploader-email as an input or "
+            "set the readme's Uploader: field to an email address"
         )
         return EXIT_UPLOAD_FAILURE
 
@@ -195,7 +207,7 @@ def main() -> int:
         ftp_uploader.upload(
             inputs.filename,
             inputs.readme,
-            email=inputs.uploader_email,
+            email=effective_email,
             host=inputs.ftp_host,
         )
     except ftp_uploader.UploadError as e:
