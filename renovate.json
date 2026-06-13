@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Group all GitHub Actions bumps into one PR.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Group Python dev dep bumps into one PR.",
+      "matchManagers": ["pip_requirements"],
+      "groupName": "python-dev-deps"
+    },
+    {
+      "description": "Dockerfile base image (python:3.12-alpine).",
+      "matchManagers": ["dockerfile"],
+      "groupName": "docker-base-image"
+    }
+  ]
+}
