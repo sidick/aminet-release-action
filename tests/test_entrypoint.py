@@ -14,7 +14,7 @@ import pytest
 import entrypoint
 import ftp_uploader
 import requires_checker
-from readme_validator import Issue
+from readme_validator import Issue, validate_filename
 
 FIXTURES = Path(__file__).parent / "fixtures" / "readmes"
 
@@ -131,6 +131,46 @@ def test_happy_upload_calls_ftp_with_inputs(workspace, monkeypatch):
     assert captured["readme"] == readme
     assert captured["email"] == "me@example.com"
     assert captured["host"] == "localhost"
+
+
+def test_nested_filename_path_strips_to_basename_for_validation_and_upload(
+    workspace, monkeypatch, tmp_path,
+):
+    """A real consumer passes `build/MyTool.lha`; the directory part must not
+    leak into either the validator (where `/` is illegal in a filename) or
+    the remote name on Aminet.
+    """
+    _, _, readme = workspace
+    nested = tmp_path / "build" / "dist" / "MyTool.lha"
+    nested.parent.mkdir(parents=True)
+    nested.write_bytes(b"payload")
+
+    # Sanity-check: feeding the full path string to the filename validator
+    # would reject it (slash is outside the allowed charset), so a passing
+    # main() proves the validator is working off the basename only.
+    assert validate_filename(str(nested)) != []
+
+    captured: dict = {}
+
+    def fake_upload(filename, readme_path, *, email, host):
+        captured["filename"] = filename
+
+    monkeypatch.setattr(ftp_uploader, "upload", fake_upload)
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(nested),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    assert entrypoint.main() == 0
+
+    # The uploader gets the full path so lftp can read the file locally...
+    assert captured["filename"] == nested
+    # ...but `.name` is what lftp puts on the wire (lftp's `put` default),
+    # and what the validator checks. Both must be just the basename.
+    assert captured["filename"].name == "MyTool.lha"
 
 
 def test_ftp_failure_returns_two(workspace, monkeypatch):
