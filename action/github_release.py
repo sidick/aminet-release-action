@@ -15,7 +15,15 @@ API_BASE = "https://api.github.com"
 
 
 class ReleaseError(RuntimeError):
-    pass
+    """Raised when a GitHub API call fails.
+
+    `status` is the HTTP response code when the failure is an HTTP error;
+    None for transport-level failures (DNS, connection refused, etc.).
+    """
+
+    def __init__(self, message: str, *, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 def _request(
@@ -41,7 +49,7 @@ def _request(
             body = resp.read()
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace") if e.fp else ""
-        raise ReleaseError(f"GitHub API {e.code} on {url}: {body[:500]}") from e
+        raise ReleaseError(f"GitHub API {e.code} on {url}: {body[:500]}", status=e.code) from e
     except urllib.error.URLError as e:
         raise ReleaseError(f"GitHub API request failed for {url}: {e.reason}") from e
     if not body:
@@ -51,11 +59,13 @@ def _request(
 
 def find_release_by_tag(repo: str, tag: str, token: str) -> dict | None:
     """Return the release for `tag`, or None if no such release exists."""
-    url = f"{API_BASE}/repos/{repo}/releases/tags/{urllib.parse.quote(tag)}"
+    # safe="" forces `/` to be encoded too — without it a tag like
+    # "release/1.0" would corrupt the API path.
+    url = f"{API_BASE}/repos/{repo}/releases/tags/{urllib.parse.quote(tag, safe='')}"
     try:
         return _request(url, token)
     except ReleaseError as e:
-        if " 404 " in f" {e} ":
+        if e.status == 404:
             return None
         raise
 

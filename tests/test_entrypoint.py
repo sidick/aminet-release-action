@@ -13,6 +13,7 @@ import pytest
 
 import entrypoint
 import ftp_uploader
+import github_release
 import path_checker
 from entrypoint import RunResult, _build_summary
 from readme_validator import Issue, validate_filename
@@ -595,6 +596,196 @@ def test_main_writes_summary_to_github_step_summary(workspace, monkeypatch, tmp_
     assert "Aminet Release — `test.lha` → `util/misc`" in content
     assert "OK — 0 errors" in content
     assert "skipped (validate-only)" in content
+
+
+# --------------------------------------------------------------------------
+# Release asset attachment orchestration
+#
+# The github_release module has its own unit tests; here we verify the
+# entrypoint plumbing — tag-push detection, missing-token handling, the
+# v-prefix lookup fallback, and that release-attach failures don't fail
+# the action when the FTP upload already succeeded.
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def upload_succeeds(monkeypatch):
+    monkeypatch.setattr(ftp_uploader, "upload", lambda *a, **k: None)
+
+
+def _set_tag_env(monkeypatch, tag="v1.0.0", repo="owner/repo", token="ghp_test"):
+    monkeypatch.setenv("GITHUB_REF", f"refs/tags/{tag}")
+    monkeypatch.setenv("GITHUB_REPOSITORY", repo)
+    monkeypatch.setenv("GITHUB_TOKEN", token)
+
+
+def test_release_attach_with_matching_release_uploads_both_assets(
+    workspace, monkeypatch, upload_succeeds
+):
+    _, upload, readme = workspace
+    fake_release = {"upload_url": "https://up.example/assets{?name,label}", "name": "v1.0.0"}
+    monkeypatch.setattr(github_release, "find_release_by_tag", lambda *a, **k: fake_release)
+
+    uploaded_names: list[str] = []
+    monkeypatch.setattr(
+        github_release,
+        "upload_asset",
+        lambda template, path, token: uploaded_names.append(path.name),
+    )
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    _set_tag_env(monkeypatch)
+
+    assert entrypoint.main() == 0
+    assert sorted(uploaded_names) == ["test.lha", "test.readme"]
+
+
+def test_release_attach_no_matching_release_doesnt_call_upload_asset(
+    workspace, monkeypatch, upload_succeeds
+):
+    _, upload, readme = workspace
+    monkeypatch.setattr(github_release, "find_release_by_tag", lambda *a, **k: None)
+    upload_asset_called: list = []
+    monkeypatch.setattr(
+        github_release, "upload_asset", lambda *a, **k: upload_asset_called.append(True)
+    )
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    _set_tag_env(monkeypatch, tag="v9.9.9")
+
+    assert entrypoint.main() == 0
+    assert upload_asset_called == []
+
+
+def test_release_attach_falls_back_to_v_stripped_tag(workspace, monkeypatch, upload_succeeds):
+    """Tag `v1.0.0` not found → try `1.0.0` before giving up."""
+    _, upload, readme = workspace
+    looked_up: list[str] = []
+    found = {"upload_url": "https://up.example/assets{?name,label}", "name": "1.0.0"}
+
+    def fake_find(repo, tag, token):
+        looked_up.append(tag)
+        return found if tag == "1.0.0" else None
+
+    monkeypatch.setattr(github_release, "find_release_by_tag", fake_find)
+    monkeypatch.setattr(github_release, "upload_asset", lambda *a, **k: None)
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    _set_tag_env(monkeypatch, tag="v1.0.0")
+
+    assert entrypoint.main() == 0
+    assert looked_up == ["v1.0.0", "1.0.0"]
+
+
+def test_release_attach_skipped_when_token_missing(workspace, monkeypatch, upload_succeeds):
+    _, upload, readme = workspace
+    find_called: list = []
+    monkeypatch.setattr(
+        github_release, "find_release_by_tag", lambda *a, **k: find_called.append(True)
+    )
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    # Tag push, repo set, but NO GITHUB_TOKEN.
+    monkeypatch.setenv("GITHUB_REF", "refs/tags/v1.0.0")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+
+    assert entrypoint.main() == 0
+    assert find_called == []
+
+
+def test_release_attach_skipped_when_not_a_tag_push(workspace, monkeypatch, upload_succeeds):
+    _, upload, readme = workspace
+    find_called: list = []
+    monkeypatch.setattr(
+        github_release, "find_release_by_tag", lambda *a, **k: find_called.append(True)
+    )
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    # Branch push, not a tag.
+    monkeypatch.setenv("GITHUB_REF", "refs/heads/main")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+
+    assert entrypoint.main() == 0
+    assert find_called == []
+
+
+def test_release_attach_failure_doesnt_fail_the_action(workspace, monkeypatch, upload_succeeds):
+    _, upload, readme = workspace
+    fake_release = {"upload_url": "https://up.example/assets{?name,label}", "name": "v1.0.0"}
+    monkeypatch.setattr(github_release, "find_release_by_tag", lambda *a, **k: fake_release)
+
+    def boom(*a, **k):
+        raise github_release.ReleaseError("upload broke", status=500)
+
+    monkeypatch.setattr(github_release, "upload_asset", boom)
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    _set_tag_env(monkeypatch)
+
+    # The FTP upload already succeeded — a release-attach blow-up must not
+    # turn this into a non-zero exit.
+    assert entrypoint.main() == 0
+
+
+def test_release_attach_populates_outputs(workspace, monkeypatch, tmp_path, upload_succeeds):
+    _, upload, readme = workspace
+    fake_release = {"upload_url": "https://up.example/assets{?name,label}", "name": "v1.0.0"}
+    monkeypatch.setattr(github_release, "find_release_by_tag", lambda *a, **k: fake_release)
+    monkeypatch.setattr(github_release, "upload_asset", lambda *a, **k: None)
+
+    output_file = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+    _set_inputs(
+        monkeypatch,
+        filename=str(upload),
+        readme=str(readme),
+        category="util/misc",
+        uploader_email="me@example.com",
+    )
+    _set_tag_env(monkeypatch)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+
+    assert entrypoint.main() == 0
+    content = output_file.read_text()
+    assert "release-attached=true" in content
 
 
 def test_upload_normalises_crlf_readme(workspace, monkeypatch):

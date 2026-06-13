@@ -84,6 +84,25 @@ jobs:
 
 Per the wiki, upload filenames must be ≤ 30 characters and contain only `[A-Za-z0-9._-]`. Version numbers belong in the readme's `Version:` field, not the filename. The validator enforces both.
 
+## GitHub Releases
+
+When the workflow that calls the action is triggered by a **tag push** (`GITHUB_REF` starts with `refs/tags/`), the action looks for a matching GitHub Release and attaches the upload file and readme to it as release assets.
+
+**Lookup order:**
+1. Tag name verbatim (e.g. `v1.0.0`).
+2. Tag name with a leading `v` stripped (e.g. `1.0.0`).
+   This lets you tag with either convention; the action finds the release either way.
+
+**Required permission:** the workflow needs `contents: write` so the action's `GITHUB_TOKEN` can upload release assets. The release workflow example above sets this.
+
+**Graceful behaviour:**
+- **No matching release** → a `notice` is logged ("No GitHub Release found for tag …; skipping asset attachment"). The action still exits with the Aminet upload result; the missing release is not a failure.
+- **Asset upload fails** (transient API error, etc.) → a `warning` is logged. The action still exits successfully if the Aminet FTP upload succeeded — the release attachment is best-effort and never overrides the upload result.
+- **Not a tag push** → the release attachment step is skipped entirely. No API calls are made.
+- **`GITHUB_TOKEN` or `GITHUB_REPOSITORY` not in the environment** → a `warning` is logged and attachment is skipped.
+
+The `release-attached` output (see below) is `true` only when both files were successfully attached.
+
 ## Outputs
 
 | Output | Type | Description |
